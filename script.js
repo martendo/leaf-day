@@ -189,7 +189,7 @@ function update() {
 		leaf.draw(ctx);
 	}
 
-	if (tryNum < 2 && !isAnyOutside) {
+	if (tryNum < 3 && !isAnyOutside) {
 		textboxNext();
 	}
 }
