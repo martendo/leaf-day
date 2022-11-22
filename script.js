@@ -22,15 +22,18 @@ const text = [
 	[0, "“Who else is gonna beat my record?”"],
 	[1, "“…Record?”"],
 	[2, "Rake the leaves into a pile inside of the top-left circle!<br>Click and drag to use your rake."],
+	[2, "Avoid raking away the flowers!"],
 	null,
 	[0, "“You call that fast?”"],
 	[1, "“Was it supposed to be?”"],
 	[0, "“Of course! You’re not gonna beat my record like <em>that</em>!<br>Try it again. You’ll get there.”"],
 	reset,
-	[1, "“Seriously? A pile in there?”"],
-	[0, "“Yeah.”"],
-	[1, "“Why?”"],
-	[0, "“Why not?<br>Go ahead, come on, I don’t have all day.”"],
+	[1, "“Where’d these leaves come from? I thought I just got rid of them all!”"],
+	[0, "“No, you never get rid of them.<br>They come back all the time."],
+	[0, "“They’re natural, you know.<br>You need to learn how to live with them."],
+	[0, "“We’re just moving them into the same spot, where they’ll be more organized. That’s all."],
+	[0, "“It’s better for them because they won’t have to be all over the place on our grass."],
+	[0, "“Alright now, go ahead, I don’t have all day.”"],
 	null,
 	[0, "“Hmm…”"],
 	[1, "“Ha! Beat your record!”"],
@@ -38,7 +41,8 @@ const text = [
 	newSpot,
 	[0, "“…you missed a spot!”"],
 	[1, "“Hey, I got that spot! What are you talking about?!”"],
-	[0, "“Nope. Missed it. Disqualified.<br>Good job though, with the leaves and all.<br>Wanna do the back too?”"],
+	[0, "“Nope. Missed it. Disqualified.<br>Good job though, with the leaves and all."],
+	[0, "“Wanna do the back too?”"],
 	[1, "“Not really…”"],
 	[0, "“Great! Let’s go.”"],
 	reset,
@@ -58,6 +62,11 @@ const text = [
 	[2, "The End"],
 	reset
 ];
+const rakedFlowerText = [
+	[0, "“Hey, watch where you’re raking! That was a nice flower!"],
+	[0, "“If you like raking so much, I’ve got some more leaves for you!”"],
+	moreLeaves
+];
 
 let running = true;
 let delta = 0;
@@ -70,16 +79,39 @@ let timerInterval;
 let time = 0;
 
 const leafImgs = document.getElementsByClassName("leaf");
+const flowerImgs = document.getElementsByClassName("flower");
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 const textbox = document.getElementById("textbox");
 
+class Flower {
+	constructor() {
+		do {
+			this.x = Math.floor(Math.random() * (canvas.width - BORDER_SIZE * 2)) + BORDER_SIZE;
+			this.y = Math.floor(Math.random() * (canvas.height - BORDER_SIZE * 2)) + BORDER_SIZE;
+		} while (ctx.isPointInPath(pile, this.x, this.y));
+		this.img = flowerImgs[Math.floor(Math.random() * flowerImgs.length)];
+		this.circle = new Path2D();
+		this.circle.arc(this.x, this.y, 75, 0, 2 * Math.PI);
+	}
+
+	draw(ctx) {
+		ctx.drawImage(this.img, this.x - this.img.width / 2, this.y - this.img.height / 2);
+	}
+}
+
 class Leaf {
-	constructor(x = null, y = null) {
-		this.x = x || Math.floor(Math.random() * (canvas.width - BORDER_SIZE * 2)) + BORDER_SIZE;
-		this.y = y || Math.floor(Math.random() * (canvas.height - BORDER_SIZE * 2)) + BORDER_SIZE;
+	constructor(xmin = null, xmax = null, ymin = null, ymax = null) {
+		xmin = xmin || BORDER_SIZE;
+		xmax = xmax || canvas.width - BORDER_SIZE;
+		ymin = ymin || BORDER_SIZE;
+		ymax = ymax || canvas.height - BORDER_SIZE;
+		do {
+			this.x = Math.floor(Math.random() * (xmax - xmin)) + xmin;
+			this.y = Math.floor(Math.random() * (ymax - ymin)) + ymin;
+		} while (ctx.isPointInPath(pile, this.x, this.y) || Array.from(flowers).some((flower) => ctx.isPointInPath(flower.circle, this.x, this.y)));
 		this.rotation = Math.random() * 2 * Math.PI;
 		this.img = leafImgs[Math.floor(Math.random() * leafImgs.length)];
 	}
@@ -93,11 +125,18 @@ class Leaf {
 }
 
 const leaves = new Set();
+const flowers = new Set();
 let pile = new Path2D();
 pile.arc(200, 200, 100, 0, 2 * Math.PI);
 
-function initLeaves() {
-	leaves.clear();
+function initLeaves(clear = true) {
+	if (clear) {
+		flowers.clear();
+		for (let i = 0; i < tryNum * 2 + 3; i++) {
+			flowers.add(new Flower());
+		}
+		leaves.clear();
+	}
 	for (let i = 0; i < LEAF_COUNT; i++) {
 		leaves.add(new Leaf());
 	}
@@ -188,6 +227,15 @@ function update() {
 		}
 		leaf.draw(ctx);
 	}
+	for (const flower of flowers) {
+		if (path && ctx.isPointInStroke(path, flower.x, flower.y)) {
+			flowers.delete(flower);
+			text.unshift(...rakedFlowerText);
+			isAnyOutside = false;
+			continue;
+		}
+		flower.draw(ctx);
+	}
 
 	if (tryNum < 3 && !isAnyOutside) {
 		textboxNext();
@@ -225,10 +273,15 @@ function reset() {
 
 function newSpot() {
 	for (let i = 0; i < 25; i++) {
-		leaves.add(new Leaf(Math.floor(Math.random() * 200) + 300, Math.floor(Math.random() * 200) + 300));
+		leaves.add(new Leaf(300, 500, 300, 500));
 	}
 	update();
 	textboxNext();
+}
+
+function moreLeaves() {
+	initLeaves(false);
+	update();
 }
 
 function updateCanvasSize() {
